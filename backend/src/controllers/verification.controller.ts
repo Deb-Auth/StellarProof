@@ -16,6 +16,7 @@ import { verificationService } from "../services/verification.service";
 import type {
   CreateVerificationJobDTO,
   UpdateVerificationStatusDTO,
+  OracleCallbackDTO,
 } from "../types/verification.types";
 
 export class VerificationController {
@@ -102,6 +103,29 @@ export class VerificationController {
         success: true,
         data: job,
         message: `Verification job transitioned to '${job.status}'`,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/v1/verification/jobs/oracle/callback
+   * Receives cryptographic attestation from the TEE oracle and advances
+   * the job to `minting`.
+   */
+  async oracleCallback(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const dto = req.body as OracleCallbackDTO;
+      const job = await verificationService.receiveOracleAttestation(dto);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: job,
+        message: "TEE attestation accepted; job moved to 'minting'",
       });
     } catch (err) {
       next(err);

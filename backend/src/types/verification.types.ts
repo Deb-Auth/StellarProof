@@ -139,3 +139,10 @@ export interface ApiResponse<T = unknown> {
   code?: string;
   message?: string;
 }
+
+/** Payload for POST /api/v1/verification/jobs/oracle/callback */
+export interface OracleCallbackDTO {
+  jobId: string; // MongoDB ObjectId of the VerificationJob
+  teeAttestationHash: string; // SHA-256 hex digest
+  teeSignature: string; // Oracle signature (hex/base64 string)
+}
