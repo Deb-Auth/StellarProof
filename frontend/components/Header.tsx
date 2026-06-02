@@ -121,8 +121,9 @@ export default function Header() {
   }, []);
 
   return (
-    <header
-      className={`sticky top-0 z-50 w-full border-b border-gray-200 dark:border-white/20 transition-all duration-300 ${
+    <>
+      <header
+        className={`fixed top-0 left-0 z-50 w-full border-b border-gray-200 dark:border-white/20 transition-all duration-300 ${
         // Glassmorphism effect when scrolled
         isScrolled
           ? "bg-white/80 dark:bg-darkblue/80 backdrop-blur-md shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.2)]"
@@ -338,6 +339,9 @@ export default function Header() {
           </motion.div>
         )}
       </AnimatePresence>
-    </header>
+      </header>
+      {/* Spacer to prevent page content from being hidden under the fixed header */}
+      <div aria-hidden className="h-16 w-full" />
+    </>
   );
 }
