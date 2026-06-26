@@ -139,14 +139,18 @@ export async function fetchRecentTransactions(
     const data = await res.json();
     const records = data._embedded?.records || [];
 
-    return records.map((r: any) => ({
-      hash: r.hash,
-      createdAt: r.created_at,
-      ledger: r.ledger,
+    return records.map((r: Record<string, unknown>) => ({
+      hash: r.hash as string,
+      createdAt: r.created_at as string,
+      ledger: r.ledger as number,
       successful: r.successful !== false,
-      fee: r.fee_charged,
-      memo: r.memo_type !== "none" && r.memo ? r.memo : undefined,
+      fee: r.fee_charged as string,
+      memo:
+        r.memo_type !== "none" && r.memo
+          ? (r.memo as string)
+          : undefined,
     }));
+
   } catch (err) {
     console.error("fetchRecentTransactions error, returning empty list:", err);
     return [];

@@ -17,7 +17,7 @@ import {
   RefreshCw,
   Coins,
   Activity,
-  ExternalLink,
+
   FileCheck,
   FolderKanban,
   Sparkles,
@@ -65,7 +65,7 @@ export default function WalletDashboardPage() {
         setBalance(fetchedBalance);
         setBalance(fetchedBalance);
         setTransactions(fetchedTxs);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error loading wallet details:", err);
         addToast({
           type: "error",
@@ -102,8 +102,8 @@ export default function WalletDashboardPage() {
         message: "Wallet address copied to clipboard!",
       });
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy address:", err);
+    } catch (error) {
+      console.error("Failed to copy address:", error);
     }
   };
 
@@ -132,7 +132,7 @@ export default function WalletDashboardPage() {
           message: "Stellar Friendbot failed to fund this account.",
         });
       }
-    } catch (err) {
+    } catch {
       addToast({
         type: "error",
         message: "Failed to fund testnet account.",
@@ -192,7 +192,7 @@ export default function WalletDashboardPage() {
           <div className="lg:col-span-1 bg-white dark:bg-darkblue rounded-3xl border border-gray-200 dark:border-white/10 p-6 shadow-xl relative overflow-hidden group">
             {/* Ambient Background Lights */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
-            
+
             <div className="flex items-start justify-between mb-8">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -383,9 +383,8 @@ export default function WalletDashboardPage() {
                       <td className="py-4 pr-4 font-mono text-xs font-medium text-gray-800 dark:text-white flex items-center gap-1.5">
                         {shortenAddress(tx.hash)}
                         <a
-                          href={`https://stellar.expert/explorer/${
-                            activeNetwork === "mainnet" ? "public" : activeNetwork
-                          }/tx/${tx.hash}`}
+                          href={`https://stellar.expert/explorer/${activeNetwork === "mainnet" ? "public" : activeNetwork
+                            }/tx/${tx.hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1 rounded text-primary hover:bg-primary/10 transition-colors"
@@ -412,11 +411,10 @@ export default function WalletDashboardPage() {
                       {/* Status */}
                       <td className="py-4 px-4 text-center">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            tx.successful
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                          }`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${tx.successful
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                            }`}
                         >
                           {tx.successful ? "Success" : "Failed"}
                         </span>

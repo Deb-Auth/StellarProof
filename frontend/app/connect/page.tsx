@@ -22,10 +22,11 @@ export default function ConnectPage() {
   const handleConnect = async () => {
     try {
       await connect();
-    } catch (err: any) {
+    } catch (err: unknown) {
       addToast({
         type: "error",
-        message: err?.message || "Failed to connect wallet",
+        message:
+          err instanceof Error ? err.message : "Failed to connect wallet",
       });
     }
   };
