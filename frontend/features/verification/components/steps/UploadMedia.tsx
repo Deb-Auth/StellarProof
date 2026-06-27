@@ -126,6 +126,7 @@ export default function UploadMedia() {
 
           <div className="flex items-center gap-4">
             {previewUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={previewUrl}
                 alt={content.file.name}

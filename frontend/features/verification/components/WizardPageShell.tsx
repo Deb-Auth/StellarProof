@@ -29,26 +29,20 @@ export default function WizardPageShell() {
   const hasHydrated = useWizardStore((state) => state._hasHydrated);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!hasHydrated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
-      </div>
-    );
-  }
-
   const isLastStep = currentStep === STEPS.length - 1;
   const isFirstStep = currentStep === 0;
   const isCurrentStepValid = validation[currentStep] ?? false;
 
   const handleNext = useCallback(() => {
-    if (!isCurrentStepValid) return;
-    if (!isLastStep) setStep(currentStep + 1);
-  }, [isCurrentStepValid, isLastStep, currentStep, setStep]);
+    const step = currentStep;
+    if (!validation[step]) return;
+    if (step < STEPS.length - 1) setStep(step + 1);
+  }, [currentStep, validation, setStep]);
 
   const handleBack = useCallback(() => {
-    if (!isFirstStep) setStep(currentStep - 1);
-  }, [isFirstStep, setStep]);
+    const step = currentStep;
+    if (step > 0) setStep(step - 1);
+  }, [currentStep, setStep]);
 
   const handleNavigate = useCallback(
     (step: number) => {
@@ -89,6 +83,14 @@ export default function WizardPageShell() {
       isSubmitting={isSubmitting}
     />,
   ];
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#020617]">

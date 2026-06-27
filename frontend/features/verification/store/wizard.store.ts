@@ -3,9 +3,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
-  IdentityData,
-  DocumentsData,
-  VerificationData,
   UploadContentData,
   WizardFormData,
 } from '../types/wizard.types';
