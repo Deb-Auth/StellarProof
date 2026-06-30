@@ -380,7 +380,7 @@ MIT License
 *   Inspired by decentralized authenticity infrastructure
 
 ---
-
+#288
 ## ❤️ Vision
 
 **StellarProof** aims to become the universal authenticity layer for digital content across the Stellar ecosystem, enabling trust, transparency, and verifiable digital truth.
