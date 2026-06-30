@@ -1,5 +1,5 @@
 # ⭐ StellarProof — The Truth Engine for the Stellar Ecosystem
-
+linkend
 StellarProof is a decentralized digital content verification and provenance platform built on the Stellar blockchain. It enables creators, developers, and platforms to generate immutable authenticity proofs for digital media directly on-chain using **Soroban smart contracts** (Stellar's native smart contract platform built on Rust/WASM).
 
 By leveraging Stellar’s ultra-low transaction fees (~0.00001 XLM), fast 3–5 second finality, and energy-efficient **Stellar Consensus Protocol (SCP)**, StellarProof makes large-scale content verification affordable, scalable, and environmentally sustainable.
