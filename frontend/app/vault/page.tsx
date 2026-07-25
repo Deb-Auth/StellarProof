@@ -504,18 +504,15 @@ export default function VaultPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!isConnected) {
-      setIsLoading(false);
-      return;
-    }
-
+ useEffect(() => {
+    if (!isConnected) return;
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [isConnected]);
+
+  const showSkeleton = isConnected && isLoading;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -706,7 +703,7 @@ export default function VaultPage() {
 
             {/* Table / empty state */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 overflow-hidden">
-              {isLoading ? (
+              {showSkeleton ? (
                 <VaultSkeleton />
               ) : pageItems.length === 0 ? (
                 <EmptyState />
