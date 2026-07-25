@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useEffect  } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Calendar, Search, X } from "lucide-react";
 import { cn } from "../../utils/cn";

@@ -10,7 +10,7 @@ export interface DigitalProduct {
 }
 
 export const fetchDigitalProducts = async (
-  __publicKey: string
+  __publicKey?: string
 ): Promise<DigitalProduct[]> => {
   void __publicKey
   return new Promise((resolve) => {
