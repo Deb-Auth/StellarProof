@@ -8,6 +8,7 @@ import {
   type VerificationStatus,
 } from "@/services/verificationService";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/Skeleton";
 import QuickActions from "@/components/dashboard/QuickActions";
 import ProductGrid from "@/components/dashboard/ProductGrid";
 
@@ -105,6 +106,89 @@ function WalletPrompt() {
   );
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Controls skeleton */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Skeleton className="h-4 w-32" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-8 w-8 rounded" />
+          <Skeleton className="h-8 w-8 rounded" />
+          <Skeleton className="h-8 w-8 rounded" />
+        </div>
+      </div>
+
+      {/* Desktop Table skeleton */}
+      <div className="hidden overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 sm:block">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-white/10">
+          <thead className="bg-gray-50 dark:bg-white/5">
+            <tr>
+              {["Date", "Request ID", "Content Hash", "Status", "Actions"].map((h) => (
+                <th
+                  key={h}
+                  className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                >
+                  <Skeleton className="h-4 w-20" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-white/10 bg-white dark:bg-darkblue">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                <td className="whitespace-nowrap px-6 py-4">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <Skeleton className="h-4 w-32" />
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <Skeleton className="h-4 w-28" />
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <Skeleton className="h-4 w-12" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Cards skeleton */}
+      <div className="flex flex-col gap-3 sm:hidden">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-darkblue p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-20 mb-1" />
+            <Skeleton className="h-3 w-28 mb-3" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination skeleton */}
+      <div className="mt-6 flex items-center justify-between">
+        <Skeleton className="h-4 w-28" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-24 rounded-lg" />
+          <Skeleton className="h-10 w-20 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { isConnected, publicKey } = useWallet();
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
@@ -170,27 +254,7 @@ export default function DashboardPage() {
         {!isConnected ? (
           <WalletPrompt />
         ) : isLoading ? (
-          <div className="flex items-center justify-center py-24">
-            <svg
-              className="h-8 w-8 animate-spin text-primary"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8z"
-              />
-            </svg>
-          </div>
+          <DashboardSkeleton />
         ) : requests.length === 0 ? (
           <EmptyState />
         ) : (

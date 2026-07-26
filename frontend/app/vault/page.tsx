@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   ChevronLeft,
@@ -15,6 +15,7 @@ import {
 import Header from "../../components/Header";
 import { useWallet } from "@/context/WalletContext";
 import { cn } from "../../utils/cn";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 import { VaultActions } from "../../components/vault/VaultActions";
 import { DecryptionPreview } from "../../components/vault/DecryptionPreview";
@@ -260,6 +261,86 @@ function EmptyState() {
   );
 }
 
+function VaultSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Controls skeleton */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4 space-y-4">
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+        </div>
+      </div>
+
+      {/* Table skeleton */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left" aria-label="Vault items loading">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/[0.02]">
+                {["Storage ID", "Filename", "Date", "Size", "Status", "Actions"].map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"
+                  >
+                    <Skeleton className="h-4 w-20" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-28" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-36" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-24" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-16" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <Skeleton className="h-7 w-7 rounded-lg" />
+                      <Skeleton className="h-7 w-7 rounded-lg" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer skeleton */}
+        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4 flex-wrap">
+          <Skeleton className="h-4 w-48" />
+          <div className="flex items-center gap-1">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---- Vault Table Row ----------------------------------------------- */
 
 interface RowProps {
@@ -421,6 +502,17 @@ export default function VaultPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+
+ useEffect(() => {
+    if (!isConnected) return;
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isConnected]);
+
+  const showSkeleton = isConnected && isLoading;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -611,7 +703,9 @@ export default function VaultPage() {
 
             {/* Table / empty state */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 overflow-hidden">
-              {pageItems.length === 0 ? (
+              {showSkeleton ? (
+                <VaultSkeleton />
+              ) : pageItems.length === 0 ? (
                 <EmptyState />
               ) : (
                 <>
