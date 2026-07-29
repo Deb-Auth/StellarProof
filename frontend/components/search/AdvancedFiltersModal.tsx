@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, RotateCcw, ShieldCheck, User } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  Calendar,
+  RotateCcw,
+  ShieldCheck,
+  SlidersHorizontal,
+  User,
+} from "lucide-react";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { SuspenseWrapper } from "@/components/common/SuspenseWrapper";
 import { cn } from "@/utils/cn";
 
 /* ------------------------------------------------------------------ */
@@ -76,6 +84,60 @@ export function hasActiveAdvancedFilters(f: AdvancedFilters): boolean {
     f.fileType !== "all" ||
     f.creator.trim() !== ""
   );
+}
+
+/* ------------------------------------------------------------------ */
+/*                         URL search params                           */
+/* ------------------------------------------------------------------ */
+
+const FILTER_PARAM_KEYS = {
+  dateFrom: "filterFrom",
+  dateTo: "filterTo",
+  privacyStatus: "privacy",
+  fileType: "fileType",
+  creator: "creator",
+} as const;
+
+const VALID_PRIVACY_STATUSES: SpvPrivacyStatus[] = PRIVACY_OPTIONS.map(
+  (opt) => opt.value
+);
+const VALID_FILE_TYPES: SearchFileType[] = FILE_TYPE_OPTIONS.map(
+  (opt) => opt.value
+);
+
+export function advancedFiltersToSearchParams(
+  filters: AdvancedFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.dateFrom) params.set(FILTER_PARAM_KEYS.dateFrom, filters.dateFrom);
+  if (filters.dateTo) params.set(FILTER_PARAM_KEYS.dateTo, filters.dateTo);
+  if (filters.privacyStatus !== "all")
+    params.set(FILTER_PARAM_KEYS.privacyStatus, filters.privacyStatus);
+  if (filters.fileType !== "all")
+    params.set(FILTER_PARAM_KEYS.fileType, filters.fileType);
+  if (filters.creator.trim())
+    params.set(FILTER_PARAM_KEYS.creator, filters.creator.trim());
+  return params;
+}
+
+export function advancedFiltersFromSearchParams(
+  params: URLSearchParams
+): AdvancedFilters {
+  const privacyRaw = params.get(FILTER_PARAM_KEYS.privacyStatus);
+  const fileTypeRaw = params.get(FILTER_PARAM_KEYS.fileType);
+  return {
+    dateFrom: params.get(FILTER_PARAM_KEYS.dateFrom) ?? "",
+    dateTo: params.get(FILTER_PARAM_KEYS.dateTo) ?? "",
+    privacyStatus: VALID_PRIVACY_STATUSES.includes(
+      privacyRaw as SpvPrivacyStatus
+    )
+      ? (privacyRaw as SpvPrivacyStatus)
+      : "all",
+    fileType: VALID_FILE_TYPES.includes(fileTypeRaw as SearchFileType)
+      ? (fileTypeRaw as SearchFileType)
+      : "all",
+    creator: params.get(FILTER_PARAM_KEYS.creator) ?? "",
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -339,3 +401,101 @@ export function AdvancedFiltersModal({
 }
 
 export default AdvancedFiltersModal;
+
+/* ------------------------------------------------------------------ */
+/*                     AdvancedFiltersControl                          */
+/* ------------------------------------------------------------------ */
+/*
+ * Drop-in trigger button + modal that keeps the applied filters in sync
+ * with the URL's search params: initial state is read from the URL, and
+ * every "Apply Filters" action updates the URL via router.replace so the
+ * search is shareable and survives a refresh or browser back/forward.
+ */
+
+export interface AdvancedFiltersControlProps {
+  className?: string;
+  onFiltersChange?: (filters: AdvancedFilters) => void;
+}
+
+function AdvancedFiltersControlContent({
+  className,
+  onFiltersChange,
+}: AdvancedFiltersControlProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [open, setOpen] = useState(false);
+  const [filters, setFilters] = useState<AdvancedFilters>(() =>
+    advancedFiltersFromSearchParams(searchParams)
+  );
+
+  // Re-derive filters from the URL whenever the search params change
+  // externally (browser back/forward, a link with query params, etc.).
+  // Uses render-time state adjustment to avoid a setState-in-effect loop.
+  const searchParamsKey = searchParams.toString();
+  const [prevSearchParamsKey, setPrevSearchParamsKey] =
+    useState(searchParamsKey);
+  if (searchParamsKey !== prevSearchParamsKey) {
+    setPrevSearchParamsKey(searchParamsKey);
+    setFilters(advancedFiltersFromSearchParams(searchParams));
+  }
+
+  useEffect(() => {
+    onFiltersChange?.(advancedFiltersFromSearchParams(searchParams));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParamsKey]);
+
+  const handleApply = useCallback(
+    (next: AdvancedFilters) => {
+      setFilters(next);
+      const qs = advancedFiltersToSearchParams(next).toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname]
+  );
+
+  const active = hasActiveAdvancedFilters(filters);
+
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={cn(
+          "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors",
+          active
+            ? "bg-primary/10 border-primary text-primary"
+            : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+        )}
+      >
+        <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
+        Advanced Filters
+        {active && (
+          <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
+        )}
+      </button>
+
+      <AdvancedFiltersModal
+        open={open}
+        onClose={() => setOpen(false)}
+        filters={filters}
+        onApply={handleApply}
+      />
+    </div>
+  );
+}
+
+export function AdvancedFiltersControl(props: AdvancedFiltersControlProps) {
+  return (
+    <SuspenseWrapper
+      fallback={
+        <div className="h-10 w-40 rounded-xl bg-white/5 border border-white/10 animate-pulse" />
+      }
+    >
+      <AdvancedFiltersControlContent {...props} />
+    </SuspenseWrapper>
+  );
+}
