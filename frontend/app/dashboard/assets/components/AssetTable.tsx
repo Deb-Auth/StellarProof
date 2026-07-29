@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { ShieldCheck, ShieldAlert, ShieldOff } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { ShieldCheck, ShieldAlert, ShieldOff, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import type {
@@ -16,15 +16,23 @@ export interface AssetTableProps {
   className?: string;
 }
 
-const COLUMNS = [
-  "Asset",
-  "Type",
-  "Owner",
-  "Content Hash",
-  "KMS Encryption",
-  "Verified At",
-  "Status",
-  "Size",
+type SortableColumn = "name" | "type" | "status" | "sizeBytes";
+type SortDirection = "asc" | "dsc";
+
+interface SortConfig {
+  key: SortableColumn;
+  direction: SortDirection;
+}
+
+const COLUMNS: { key: SortableColumn | string; label: string; sortable: boolean }[] = [
+  { key: "name", label: "Asset", sortable: true },
+  { key: "type", label: "Type", sortable: true },
+  { key: "owner", label: "Owner", sortable: false },
+  { key: "contentHash", label: "Content Hash", sortable: false },
+  { key: "kmsEncryptionStatus", label: "KMS Encryption", sortable: false },
+  { key: "verifiedAt", label: "Verified At", sortable: false },
+  { key: "status", label: "Status", sortable: true },
+  { key: "sizeBytes", label: "Size", sortable: true },
 ];
 
 const STATUS_STYLES: Record<AssetVerificationStatus, string> = {
@@ -137,6 +145,51 @@ export default function AssetTable({
   isLoading = false,
   className,
 }: AssetTableProps) {
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const sortedAssets = useMemo(() => {
+    let sortableItems = [...assets];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [assets, sortConfig]);
+
+  const paginatedAssets = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedAssets.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedAssets, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(sortedAssets.length / itemsPerPage);
+
+  const requestSort = (key: SortableColumn) => {
+    let direction: SortDirection = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "dsc";
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const SortIcon = ({ columnKey }: { columnKey: SortableColumn | string }) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 text-gray-400" />;
+    }
+    if (sortConfig.direction === 'asc') {
+      return <ChevronUp className="w-3 h-3 ml-1" />;
+    }
+    return <ChevronDown className="w-3 h-3 ml-1" />;
+  };
+
   return (
     <div
       className={cn(
@@ -149,28 +202,58 @@ export default function AssetTable({
       ) : assets.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left" aria-label="Digital assets">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/[0.02]">
-                {COLUMNS.map((heading) => (
-                  <th
-                    key={heading}
-                    scope="col"
-                    className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"
-                  >
-                    {heading}
-                  </th>
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left" aria-label="Digital assets">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/[0.02]">
+                  {COLUMNS.map((column) => (
+                    <th
+                      key={column.key}
+                      scope="col"
+                      className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"
+                    >
+                      {column.sortable ? (
+                        <button className="flex items-center" onClick={() => requestSort(column.key as SortableColumn)}>
+                          {column.label}
+                          <SortIcon columnKey={column.key} />
+                        </button>
+                      ) : (
+                        column.label
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedAssets.map((asset) => (
+                  <AssetRow key={asset.id} asset={asset} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {assets.map((asset) => (
-                <AssetRow key={asset.id} asset={asset} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t border-gray-100 dark:border-gray-800">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
