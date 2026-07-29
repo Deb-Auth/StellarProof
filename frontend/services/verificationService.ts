@@ -16,12 +16,6 @@ const CONTRACT_ID = process.env.NEXT_PUBLIC_VITE_SOROBAN_CONTRACT_ID || '';
 // Initialize Horizon server
 const server = new StellarSDK.Horizon.Server(HORIZON_URL);
 
-// Type for the signed result from Freighter
-interface SignedResult {
-  signedTxXdr?: string;
-  signedTransaction?: string;
-}
-
 export const submitVerificationRequest = async (
   contentHash: string,
   manifestHash: string | null,
@@ -69,13 +63,20 @@ export const submitVerificationRequest = async (
       networkPassphrase: networkPassphrase,
     });
 
-    // Extract the signed XDR
-    const signedXDR =
-      typeof signedResult === 'string'
-        ? signedResult
-        : (signedResult as SignedResult).signedTxXdr ||
-          (signedResult as SignedResult).signedTransaction ||
-          signedResult;
+    // Extract the signed XDR string correctly
+    let signedXDR: string;
+    if (typeof signedResult === 'string') {
+      signedXDR = signedResult;
+    } else if (signedResult && typeof signedResult === 'object') {
+      // Handle the case where signedResult is an object with signedTxXdr
+      const resultObj = signedResult as { signedTxXdr?: string; signedTransaction?: string };
+      signedXDR = resultObj.signedTxXdr || resultObj.signedTransaction || '';
+      if (!signedXDR) {
+        throw new Error('No signed transaction XDR returned from Freighter');
+      }
+    } else {
+      throw new Error('Invalid response from Freighter signing');
+    }
 
     // Submit the transaction
     const submittedTransaction = await server.submitTransaction(
@@ -145,7 +146,6 @@ export interface VerificationRequest {
   certificateId?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const getVerificationRequests = async (_publicKey: string): Promise<VerificationRequest[]> => {
   try {
     return getMockRequests();
@@ -169,7 +169,6 @@ function getMockRequests(): VerificationRequest[] {
   }));
 }
 
- 
 export const checkVerificationStatus = async (
   _requestId: string,
   _publicKey: string
