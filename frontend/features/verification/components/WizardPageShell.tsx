@@ -6,7 +6,7 @@ import WizardStepper from './WizardStepper';
 import WizardNavigation from './WizardNavigation';
 import UploadMedia from './steps/UploadMedia';
 import UploadManifest from './steps/UploadManifest';
-import UploadSPVOptions from './steps/UploadSPVOptions';
+import SPVPrivacyStep from './steps/SPVPrivacyStep';
 import UploadReview from './steps/UploadReview';
 import { submitVerificationRequest } from '@/services/verificationService';
 
@@ -75,7 +75,7 @@ export default function WizardPageShell() {
   const stepComponents = [
     <UploadMedia key="media" />,
     <UploadManifest key="manifest" />,
-    <UploadSPVOptions key="spv" />,
+    <SPVPrivacyStep key="spv" />,
     <UploadReview
       key="review"
       onNavigate={handleNavigate}
