@@ -1,21 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState, useMemo } from "react";
 import Image from "next/image";
-
-/**
- * Gallery / grid view for a user's verified digital products (assets).
- *
- * Renders a responsive grid of thumbnails for verified images and videos with
- * a status badge, media-type indicator and capture date. Data is currently
- * mocked; once the asset service layer is available this component can source
- * its items from `fetchAssets` without changing the presentation.
- */
 
 type AssetType = "image" | "video";
 type AssetStatus = "verified" | "pending" | "revoked";
 
-interface Asset {
+export interface Asset {
   id: string;
   title: string;
   type: AssetType;
@@ -23,81 +14,6 @@ interface Asset {
   status: AssetStatus;
   createdAt: string;
 }
-
-const MOCK_ASSETS: Asset[] = [
-  {
-    id: "asset-001",
-    title: "Sunset Over the Serengeti",
-    type: "image",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=600&h=450&fit=crop",
-    status: "verified",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-  },
-  {
-    id: "asset-002",
-    title: "Product Launch Teaser",
-    type: "video",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&h=450&fit=crop",
-    status: "verified",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-  },
-  {
-    id: "asset-003",
-    title: "Golden Hour Portrait Series",
-    type: "image",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&h=450&fit=crop",
-    status: "pending",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 9).toISOString(),
-  },
-  {
-    id: "asset-004",
-    title: "Aerial City Flythrough",
-    type: "video",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600&h=450&fit=crop",
-    status: "verified",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
-  },
-  {
-    id: "asset-005",
-    title: "Studio Still Life",
-    type: "image",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1503602642458-232111445657?w=600&h=450&fit=crop",
-    status: "revoked",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 21).toISOString(),
-  },
-  {
-    id: "asset-006",
-    title: "Mountain Timelapse",
-    type: "video",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=600&h=450&fit=crop",
-    status: "verified",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 28).toISOString(),
-  },
-  {
-    id: "asset-007",
-    title: "Macro Botanicals",
-    type: "image",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1462530260150-162092dbf011?w=600&h=450&fit=crop",
-    status: "verified",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 33).toISOString(),
-  },
-  {
-    id: "asset-008",
-    title: "Neon Night Reel",
-    type: "video",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=450&fit=crop",
-    status: "pending",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 40).toISOString(),
-  },
-];
 
 const STATUS_BADGE: Record<AssetStatus, string> = {
   verified:
@@ -113,6 +29,102 @@ function formatDate(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+// ... (VideoIcon, AssetGridSkeleton, EmptyState, AssetCard components remain the same)
+
+interface AssetGridProps {
+  assets: Asset[];
+  isLoading?: boolean;
+}
+
+type SortKey = "title" | "createdAt";
+
+export default function AssetGrid({ assets, isLoading = false }: AssetGridProps) {
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "dsc">("dsc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const sortedAssets = useMemo(() => {
+    return [...assets].sort((a, b) => {
+      const aValue = a[sortKey];
+      const bValue = b[sortKey];
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [assets, sortKey, sortDirection]);
+
+  const paginatedAssets = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedAssets.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedAssets, currentPage]);
+
+  const totalPages = Math.ceil(sortedAssets.length / itemsPerPage);
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    const [key, direction] = value.split('-') as [SortKey, "asc" | "dsc"];
+    setSortKey(key);
+    setSortDirection(direction);
+  };
+
+  return (
+    <section aria-label="Digital assets gallery">
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          Assets
+        </h2>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {assets.length} asset{assets.length !== 1 ? "s" : ""}
+          </span>
+          <select onChange={handleSortChange} defaultValue="createdAt-dsc" className="text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+            <option value="createdAt-dsc">Newest</option>
+            <option value="createdAt-asc">Oldest</option>
+            <option value="title-asc">Title (A-Z)</option>
+            <option value="title-dsc">Title (Z-A)</option>
+          </select>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <AssetGridSkeleton />
+      ) : assets.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {paginatedAssets.map((asset) => (
+              <AssetCard key={asset.id} asset={asset} />
+            ))}
+          </div>
+          {totalPages > 1 && (
+             <div className="flex items-center justify-between p-4 mt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
 
 function VideoIcon({ className }: { className?: string }) {
