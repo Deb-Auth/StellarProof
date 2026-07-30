@@ -11,6 +11,8 @@ import {
   Send,
   Loader2,
   Upload,
+  Wallet,
+  AlertCircle,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizard.store';
 import { isValidSHA256 } from '@/utils/crypto';
@@ -19,6 +21,9 @@ export interface UploadReviewProps {
   onNavigate?: (step: number) => void;
   onSubmit?: () => void | Promise<void>;
   isSubmitting?: boolean;
+  walletConnected?: boolean;
+  onConnectWallet?: () => void | Promise<void>;
+  submitError?: string | null;
 }
 
 function SectionHeader({
@@ -79,17 +84,36 @@ function FieldRow({
   );
 }
 
-export default function UploadReview({ onNavigate, onSubmit, isSubmitting = false }: UploadReviewProps) {
+export default function UploadReview({
+  onNavigate,
+  onSubmit,
+  isSubmitting = false,
+  walletConnected = false,
+  onConnectWallet,
+  submitError = null,
+}: UploadReviewProps) {
   const { formData } = useWizardStore();
   const content = formData.content;
   const [confirmed, setConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const modeName = content?.encryptionEnabled ? 'SPV (Encrypted)' : 'Standard';
   const contentHashValid = isValidSHA256(content?.contentHash ?? '');
   const hasManifest = content?.manifest !== null && content?.manifest !== undefined;
 
-  const canSubmit = contentHashValid && confirmed && !isSubmitting && !submitted;
+  const canSubmit =
+    contentHashValid && confirmed && walletConnected && !isSubmitting && !submitted;
+
+  async function handleConnectWallet() {
+    if (!onConnectWallet) return;
+    setIsConnecting(true);
+    try {
+      await onConnectWallet();
+    } finally {
+      setIsConnecting(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -149,6 +173,33 @@ export default function UploadReview({ onNavigate, onSubmit, isSubmitting = fals
           <p className="text-xs text-gray-400 italic">No manifest attached.</p>
         )}
       </div>
+
+      {!walletConnected && (
+        <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-start gap-2">
+            <Wallet className="w-4 h-4 mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" />
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              Connect your Freighter wallet to sign and submit this verification request.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleConnectWallet}
+            disabled={isConnecting}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-xs font-medium text-white hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            {isConnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
+            Connect Wallet
+          </button>
+        </div>
+      )}
+
+      {submitError && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+          <AlertCircle className="w-4 h-4 mt-0.5 text-red-600 dark:text-red-400 shrink-0" />
+          <p className="text-xs text-red-700 dark:text-red-300">{submitError}</p>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-5 space-y-4">
         <label className="flex items-start gap-3 cursor-pointer">

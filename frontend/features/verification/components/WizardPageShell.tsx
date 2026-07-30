@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useWizardStore } from '../store/wizard.store';
+import { useWallet } from '@/context/WalletContext';
 import WizardStepper from './WizardStepper';
 import WizardNavigation from './WizardNavigation';
 import UploadMedia from './steps/UploadMedia';
@@ -27,7 +28,9 @@ export default function WizardPageShell() {
   } = useWizardStore();
 
   const hasHydrated = useWizardStore((state) => state._hasHydrated);
+  const { publicKey, isConnected, connect } = useWallet();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isLastStep = currentStep === STEPS.length - 1;
   const isFirstStep = currentStep === 0;
@@ -52,21 +55,30 @@ export default function WizardPageShell() {
   );
 
   const handleSubmit = useCallback(async () => {
+    if (!isConnected || !publicKey) {
+      setSubmitError('Please connect your Freighter wallet before submitting.');
+      return;
+    }
+
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       const content = formData.content;
       await submitVerificationRequest(
         content?.contentHash ?? '',
         content?.manifestHash ?? null,
-        'GAAAAAAAAAAAAAAA',
+        publicKey,
       );
       resetWizard();
     } catch (error) {
       console.error('Submission failed:', error);
+      setSubmitError(
+        error instanceof Error ? error.message : 'Submission failed. Please try again.',
+      );
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData.content, resetWizard]);
+  }, [formData.content, resetWizard, isConnected, publicKey]);
 
   const handleCancel = useCallback(() => {
     resetWizard();
@@ -81,6 +93,9 @@ export default function WizardPageShell() {
       onNavigate={handleNavigate}
       onSubmit={handleSubmit}
       isSubmitting={isSubmitting}
+      walletConnected={isConnected}
+      onConnectWallet={connect}
+      submitError={submitError}
     />,
   ];
 
