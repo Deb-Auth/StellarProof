@@ -98,7 +98,7 @@ export default function UploadReview({
   const [submitted, setSubmitted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const modeName = content?.encryptionEnabled ? 'SPV (Encrypted)' : 'Standard';
+  const modeName = content?.encryptionEnabled ? 'KMS Encrypted' : 'Public';
   const contentHashValid = isValidSHA256(content?.contentHash ?? '');
   const hasManifest = content?.manifest !== null && content?.manifest !== undefined;
 
