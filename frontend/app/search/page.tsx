@@ -41,6 +41,11 @@ function readViewPreference(): ViewMode {
  */
 const SEARCH_DEBOUNCE_MS = 300;
 
+/** True when a rejected promise stemmed from an intentional abort. */
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
+}
+
 /**
  * Global Certificate Search page.
  *
@@ -68,19 +73,19 @@ export default function SearchPage() {
   /* ---------------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
-    fetchAllCertificates()
+    fetchAllCertificates({ signal: controller.signal })
       .then((data) => {
         if (cancelled) return;
         setAllResults(data);
         setResults(data);
       })
-      .catch(() => {
-        if (!cancelled) {
-          setError(
-            "Failed to load global certificate index. Please try again.",
-          );
-        }
+      .catch((err: unknown) => {
+        if (cancelled || isAbortError(err)) return;
+        setError(
+          "Failed to load global certificate index. Please try again.",
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -88,6 +93,7 @@ export default function SearchPage() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -113,15 +119,15 @@ export default function SearchPage() {
     if (trimmed === "") return;
 
     let cancelled = false;
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      searchCertificates(trimmed)
+      searchCertificates(trimmed, { signal: controller.signal })
         .then((data) => {
           if (!cancelled) setResults(data);
         })
-        .catch(() => {
-          if (!cancelled) {
-            setError("Search failed. Please try again.");
-          }
+        .catch((err: unknown) => {
+          if (cancelled || isAbortError(err)) return;
+          setError("Search failed. Please try again.");
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -130,9 +136,24 @@ export default function SearchPage() {
 
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearTimeout(timer);
     };
   }, [query]);
+
+  /**
+   * Restore the cached global index and clear transient state. Shared by the
+   * input's onChange (empty string) and the explicit "clear search" button.
+   */
+  function restoreCachedResults() {
+    setError(null);
+    if (allResults.length > 0) {
+      setResults(allResults);
+    }
+    // Always clear loading on the empty path so the skeleton does not
+    // remain stale after a type→clear sequence.
+    setLoading(false);
+  }
 
   function handleQueryChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
@@ -143,16 +164,17 @@ export default function SearchPage() {
 
     // Clearing the search: restore cached full dataset without a spinner.
     if (trimmed === "") {
-      if (allResults.length > 0) {
-        setResults(allResults);
-      }
-      // Always clear loading on the empty path so the skeleton does not
-      // remain stale after a type→clear sequence.
-      setLoading(false);
+      restoreCachedResults();
       return;
     }
 
     setLoading(true);
+  }
+
+  /** Clear the input and immediately show the cached global index again. */
+  function handleClearSearch() {
+    setQuery("");
+    restoreCachedResults();
   }
 
   const verifiedCount = results.filter((r) => r.status === "verified").length;
@@ -165,15 +187,9 @@ export default function SearchPage() {
   const gridResults: Certificate[] = results.map((r) => ({
     id: r.id,
     title: r.name || "Untitled Certificate",
-    // Placeholder thumbnail logic. Replace with actual data when available.
-    thumbnailUrl:
-      r.type === "Image"
-        ? `https://picsum.photos/seed/${r.id}/400/300`
-        : r.type === "Video"
-          ? `https://picsum.photos/seed/${r.id}/400/300`
-          : r.type === "Audio"
-            ? `https://picsum.photos/seed/${r.id}/400/300`
-            : `https://picsum.photos/seed/${r.id}/400/300`,
+    // Deterministic placeholder thumbnail; the asset rendering pipeline is
+    // tracked separately, so films/photos/documents share one strategy.
+    thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(r.id)}/400/300`,
     issuerName: r.creator,
     issueDate: r.mintedAt,
   }));
@@ -284,7 +300,7 @@ export default function SearchPage() {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                onClick={() => setQuery("")}
+                onClick={handleClearSearch}
                 aria-label="Clear search"
                 title="Clear search"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-7 h-7 rounded-md text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary-light hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
@@ -318,7 +334,7 @@ export default function SearchPage() {
           />
         ) : (
           <GridView
-            results={results}
+            results={gridResults}
             isLoading={loading}
           />
         )}

@@ -6,7 +6,17 @@ import mongoose from "mongoose";
 
 /** Validated query parameters for GET /api/v1/certificates */
 export interface ListCertificatesQuery {
-  creatorId: string;
+  /**
+   * Optional MongoDB ObjectId of the certificate owner.
+   * When omitted, the endpoint returns the public global certificate index
+   * across all creators (used by the frontend Global Certificate Search).
+   */
+  creatorId?: string;
+  /**
+   * Optional full-text-ish search term. Matched (case-insensitively) against
+   * the on-chain `certificateId`, `transactionHash` and `contractAddress`.
+   */
+  search?: string;
   /** Maximum number of records to return (1–100, default 20). */
   limit: number;
   /** Number of records to skip for offset-based pagination (default 0). */

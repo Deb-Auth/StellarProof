@@ -2,8 +2,11 @@
  * Certificate Routes – request validation schemas and route definitions.
  *
  * Endpoints:
- *   GET /api/v1/certificates?creatorId=<ObjectId>&limit=20&skip=0
- *     Returns a paginated list of certificates owned by the given user.
+ *   GET /api/v1/certificates?creatorId=<ObjectId>&search=<term>&limit=20&skip=0
+ *     Returns a paginated list of certificates. `creatorId` narrows the list
+ *     to a single owner; when omitted the endpoint exposes the public global
+ *     certificate index. `search` matches the on-chain certificateId,
+ *     transactionHash and contractAddress (case-insensitive).
  *
  * All Zod schemas are co-located with the routes that use them.
  */
@@ -14,12 +17,19 @@ import { StatusCodes } from "http-status-codes";
 import { certificateController } from "../controllers/certificate.controller";
 
 // ---------------------------------------------------------------------------
-// Zod schema – query parameters for the certificate list endpoint
+// Zod schema – query parameters for the certificate list endpoint.
+// Exported so the validation contract can be unit-tested directly.
 // ---------------------------------------------------------------------------
-const listCertificatesQuerySchema = z.object({
+export const listCertificatesQuerySchema = z.object({
   creatorId: z
     .string()
-    .regex(/^[a-f\d]{24}$/i, "creatorId must be a valid MongoDB ObjectId"),
+    .regex(/^[a-f\d]{24}$/i, "creatorId must be a valid MongoDB ObjectId")
+    .optional(),
+  search: z
+    .string()
+    .trim()
+    .max(256, "search must be at most 256 characters")
+    .optional(),
   limit: z
     .string()
     .optional()
@@ -72,10 +82,13 @@ function validateListCertificatesQuery(
 const router = Router();
 
 /**
- * GET /api/v1/certificates?creatorId=<ObjectId>&limit=20&skip=0
+ * GET /api/v1/certificates?creatorId=<ObjectId>&search=<term>&limit=20&skip=0
  *
  * Query parameters:
- *   - creatorId  (required) – MongoDB ObjectId of the certificate owner.
+ *   - creatorId  (optional) – MongoDB ObjectId of the certificate owner. When
+ *                omitted, the public global certificate index is returned.
+ *   - search     (optional, ≤256 chars) – matches certificateId, transactionHash
+ *                and contractAddress (case-insensitive).
  *   - limit      (optional, 1–100, default 20) – page size.
  *   - skip       (optional, ≥0, default 0)     – offset for pagination.
  *
