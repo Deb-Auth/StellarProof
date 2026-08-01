@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState, useRef, type DragEvent, type ChangeEvent } from 'react';
-import { Upload, FileImage, FileVideo, FileText, X, AlertCircle, CheckCircle2, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Upload, FileImage, FileVideo, FileText, X, AlertCircle, CheckCircle2, Loader2, Eye } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────
 export interface MediaFile {
@@ -99,6 +99,25 @@ export default function MediaUploadStep({
     [externalFiles, onFilesChange],
   );
 
+  const simulateUpload = useCallback(async (fileId: string) => {
+  const updateProgress = (progress: number) => {
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === fileId
+          ? { ...f, progress, status: progress >= 100 ? 'done' : 'uploading' }
+          : f,
+      ),
+    );
+  };
+
+  for (let p = 0; p <= 100; p += 20) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    updateProgress(p);
+  }
+
+  updateProgress(100);
+}, [setFiles]);
+
   // ── File Processing ───────────────────────────────────
   const processFiles = useCallback(
     async (fileList: FileList | File[]) => {
@@ -152,26 +171,9 @@ export default function MediaUploadStep({
         await simulateUpload(entry.id);
       }
     },
-    [maxSize, multiple, files, setFiles],
+    [maxSize, multiple, files, setFiles, simulateUpload],
   );
 
-  const simulateUpload = async (fileId: string) => {
-    const updateProgress = (progress: number) => {
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.id === fileId
-            ? { ...f, progress, status: progress >= 100 ? 'done' : 'uploading' }
-            : f,
-        ),
-      );
-    };
-
-    for (let p = 0; p <= 100; p += 20) {
-      await new Promise((r) => setTimeout(r, 150));
-      updateProgress(p);
-    }
-    updateProgress(100);
-  };
 
   // ── Drag Handlers ─────────────────────────────────────
   const handleDragEnter = useCallback((e: DragEvent) => {
