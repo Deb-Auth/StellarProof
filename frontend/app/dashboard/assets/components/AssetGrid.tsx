@@ -248,23 +248,19 @@ interface AssetGridProps {
 }
 
 export default function AssetGrid({ assets }: AssetGridProps) {
-  const [items, setItems] = useState<Asset[] | null>(assets ?? null);
+  const [mockItems, setMockItems] = useState<Asset[] | null>(null);
   const [isLoading, setIsLoading] = useState(!assets);
+  const items = assets ?? mockItems;
 
   useEffect(() => {
-    if (assets) {
-      setItems(assets);
-      setIsLoading(false);
-      return;
-    }
+    if (assets) return;
 
     let cancelled = false;
-    setIsLoading(true);
 
     // Simulate asset retrieval until the service layer is wired in.
     const timer = setTimeout(() => {
       if (!cancelled) {
-        setItems(MOCK_ASSETS);
+        setMockItems(MOCK_ASSETS);
         setIsLoading(false);
       }
     }, 400);

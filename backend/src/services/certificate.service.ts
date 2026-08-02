@@ -7,11 +7,16 @@ import type {
   CertificateListResult,
 } from "../types/certificate.types";
 
+/** Escape user input so it can be safely embedded in a MongoDB `$regex`. */
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export class CertificateService {
   async listCertificates(query: ListCertificatesQuery): Promise<CertificateListResult> {
-    const { creatorId, limit, skip } = query;
+    const { creatorId, search, limit, skip } = query;
 
-    if (!mongoose.Types.ObjectId.isValid(creatorId)) {
+    if (creatorId && !mongoose.Types.ObjectId.isValid(creatorId)) {
       throw new AppError(
         "creatorId must be a valid MongoDB ObjectId",
         StatusCodes.BAD_REQUEST,
@@ -35,11 +40,35 @@ export class CertificateService {
       );
     }
 
-    const filter = { creatorId: new mongoose.Types.ObjectId(creatorId) };
+    const conditions: Record<string, unknown>[] = [];
+
+    // Per-owner listing when creatorId is supplied; otherwise the query
+    // targets the public global certificate index.
+    if (creatorId) {
+      conditions.push({ creatorId: new mongoose.Types.ObjectId(creatorId) });
+    }
+
+    // Full-text-ish search across the on-chain identifiers of a certificate.
+    if (search) {
+      const matcher = { $regex: escapeRegex(search), $options: "i" };
+      conditions.push({
+        $or: [
+          { certificateId: matcher },
+          { transactionHash: matcher },
+          { contractAddress: matcher },
+        ],
+      });
+    }
+
+    const filter = conditions.length > 0 ? { $and: conditions } : {};
 
     const [certificates, total] = await Promise.all([
       Certificate.find(filter)
-        .sort({ createdAt: -1 })
+        // Populate the linked asset + manifest so the frontend can render
+        // human-readable names/descriptions without extra round-trips.
+        .populate("assetId", "fileName mimeType storageReferenceId")
+        .populate("manifestId", "contentHash creator metadata")
+        .sort({ mintedAt: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean<Record<string, unknown>[]>(),
