@@ -203,7 +203,7 @@ describe('MediaUploadStep', () => {
     });
 
     it('displays file category badge', async () => {
-      render(<MediaUploadStep />);
+      render(<MediaUploadStep accept={{ 'application/json': ['.json'] }} />);
       const file = createFile('data.json', 500, 'application/json');
       const input = screen.getByTestId('file-input');
 
