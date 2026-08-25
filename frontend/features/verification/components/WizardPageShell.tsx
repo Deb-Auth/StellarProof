@@ -9,6 +9,7 @@ import UploadManifest from './steps/UploadManifest';
 import UploadSPVOptions from './steps/UploadSPVOptions';
 import UploadReview from './steps/UploadReview';
 import { submitVerificationRequest } from '@/services/verificationService';
+import { buildVerificationPayload } from '../utils/payloadBuilder';
 
 const STEPS = [
   { id: 0, label: 'Media Upload' },
@@ -54,11 +55,13 @@ export default function WizardPageShell() {
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
     try {
-      const content = formData.content;
+      const payload = buildVerificationPayload(formData, {
+        publicKey: 'GAAAAAAAAAAAAAAA',
+      });
       await submitVerificationRequest(
-        content?.contentHash ?? '',
-        content?.manifestHash ?? null,
-        'GAAAAAAAAAAAAAAA',
+        payload.contentHash,
+        payload.manifestHash,
+        payload.publicKey,
       );
       resetWizard();
     } catch (error) {
@@ -66,7 +69,7 @@ export default function WizardPageShell() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData.content, resetWizard]);
+  }, [formData, resetWizard]);
 
   const handleCancel = useCallback(() => {
     resetWizard();
