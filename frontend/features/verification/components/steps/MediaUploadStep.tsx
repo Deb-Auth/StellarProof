@@ -2,6 +2,11 @@
 
 import React, { useCallback, useState, useRef, type DragEvent, type ChangeEvent } from 'react';
 import { Upload, FileImage, FileVideo, FileText, X, AlertCircle, CheckCircle2, Loader2, Eye } from 'lucide-react';
+import {
+  DEFAULT_MAX_MEDIA_SIZE,
+  DEFAULT_MEDIA_ACCEPT,
+  validateMediaFile,
+} from '../../mediaValidation';
 
 // ── Types ──────────────────────────────────────────────────
 export interface MediaFile {
@@ -32,14 +37,6 @@ export interface MediaUploadStepProps {
   hint?: string;
 }
 
-const DEFAULT_ACCEPT: Record<string, string[]> = {
-  'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic'],
-  'video/*': ['.mp4', '.mov', '.avi', '.webm', '.mkv'],
-  'application/pdf': ['.pdf'],
-};
-
-const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
-
 // ── Helpers ────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -67,8 +64,8 @@ function getFileCategory(mimeType: string): string {
 
 // ── Component ──────────────────────────────────────────────
 export default function MediaUploadStep({
-  maxSize = DEFAULT_MAX_SIZE,
-  accept = DEFAULT_ACCEPT,
+  maxSize = DEFAULT_MAX_MEDIA_SIZE,
+  accept = DEFAULT_MEDIA_ACCEPT,
   multiple = false,
   onFilesChange,
   files: externalFiles,
@@ -129,12 +126,12 @@ export default function MediaUploadStep({
       // Validate each file
       const validFiles: File[] = [];
       for (const file of incoming) {
-        if (file.size > maxSize) {
-          setError(`"${file.name}" exceeds ${formatFileSize(maxSize)} limit`);
-          continue;
-        }
-        if (file.size === 0) {
-          setError(`"${file.name}" is empty`);
+        const validation = validateMediaFile(file, { maxSize, accept });
+        if (!validation.accepted) {
+          const error = validation.error === 'exceeds the maximum file size'
+            ? `exceeds ${formatFileSize(maxSize)} limit`
+            : validation.error;
+          setError(`"${file.name}" ${error}`);
           continue;
         }
         validFiles.push(file);
@@ -171,7 +168,7 @@ export default function MediaUploadStep({
         await simulateUpload(entry.id);
       }
     },
-    [maxSize, multiple, files, setFiles, simulateUpload],
+    [maxSize, accept, multiple, files, setFiles, simulateUpload],
   );
 
 
