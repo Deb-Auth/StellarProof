@@ -11,7 +11,7 @@ import {
   type MockCertificate,
 } from "@/services/web2DashboardService";
 import QuickActions from "./QuickActions";
-import { Search, ShieldCheck, FileCode, Award, CheckCircle2, Clock, AlertTriangle, ExternalLink, X, Eye } from "lucide-react";
+import { Search, ShieldCheck, FileCode, Award, CheckCircle2, Clock, AlertTriangle, ExternalLink, X, Eye, Receipt } from "lucide-react";
 
 export interface Web2DashboardViewProps {
   userEmail?: string;
@@ -171,6 +171,13 @@ export default function Web2DashboardView({ userEmail = "user@example.com", user
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/billing"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-darkblue px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+            >
+              <Receipt className="w-4 h-4 mr-2" />
+              Billing
+            </Link>
             <Link
               href="/verify"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-button-glow hover:bg-primary-dark transition"
