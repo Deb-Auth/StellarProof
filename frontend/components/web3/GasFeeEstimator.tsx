@@ -49,8 +49,12 @@ async function fetchFeeData(): Promise<FeeData> {
   return { baseFeeStroops };
 }
 
-function formatXlm(stroops: number): string {
-  return (stroops / STROOPS_PER_XLM)
+export function stroopsToXlm(stroops: number): number {
+  return stroops / STROOPS_PER_XLM;
+}
+
+export function formatXlm(stroops: number): string {
+  return stroopsToXlm(stroops)
     .toFixed(7)
     .replace(/0+$/, "")
     .replace(/\.$/, "");
