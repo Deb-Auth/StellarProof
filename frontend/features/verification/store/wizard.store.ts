@@ -11,6 +11,13 @@ import type {
 // ---- STATE TYPE ----
 //
 
+export interface SubmissionResult {
+  txHash: string;
+  requestId: string;
+  certificateId?: string;
+  timestamp: string;
+}
+
 interface WizardState {
   // Navigation
   currentStep: number;
@@ -33,6 +40,14 @@ interface WizardState {
   setManifest: (manifest: UploadContentData['manifest'], manifestHash: string | null) => void;
   setEncryptionEnabled: (enabled: boolean) => void;
   setSPVResult: (result: UploadContentData['spvResult']) => void;
+
+  // Submission state
+  isSubmitting: boolean;
+  submissionResult: SubmissionResult | null;
+  submissionError: string | null;
+  setIsSubmitting: (submitting: boolean) => void;
+  setSubmissionResult: (result: SubmissionResult | null) => void;
+  setSubmissionError: (error: string | null) => void;
 
   // Validation
   validation: Record<number, boolean>;
@@ -154,6 +169,19 @@ export const useWizardStore = create<WizardState>()(
         })),
 
       //
+      // Submission state
+      //
+      isSubmitting: false,
+      submissionResult: null,
+      submissionError: null,
+
+      setIsSubmitting: (isSubmitting) => set({ isSubmitting }),
+
+      setSubmissionResult: (submissionResult) => set({ submissionResult, submissionError: null }),
+
+      setSubmissionError: (submissionError) => set({ submissionError, submissionResult: null }),
+
+      //
       // Validation
       //
       validation: {},
@@ -174,6 +202,9 @@ export const useWizardStore = create<WizardState>()(
           currentStep: 0,
           formData: {},
           validation: {},
+          isSubmitting: false,
+          submissionResult: null,
+          submissionError: null,
         }),
 
       //
