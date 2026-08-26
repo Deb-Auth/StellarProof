@@ -157,6 +157,89 @@ export async function fetchRecentTransactions(
   }
 }
 
+export interface HorizonFeeStats {
+  /** The base fee (in stroops) charged for the last closed ledger. */
+  baseFeeStroops: number;
+  /** The typical ("mode") fee (in stroops) recently paid on the network. */
+  modeFeeStroops: number;
+}
+
+/** Stellar's protocol-defined minimum base fee, in stroops. Used as a fallback. */
+const MIN_BASE_FEE_STROOPS = 100;
+
+/**
+ * Fetches the current network base fee from Horizon's `/fee_stats` endpoint.
+ * Falls back to the network minimum base fee if the request fails, so
+ * callers can always render a usable (if conservative) estimate.
+ */
+export async function fetchBaseFee(network: StellarNetworkId): Promise<HorizonFeeStats> {
+  const isMock =
+    typeof process !== "undefined" && process.env.NEXT_PUBLIC_MOCK_WALLET === "true";
+
+  if (isMock) {
+    return { baseFeeStroops: MIN_BASE_FEE_STROOPS, modeFeeStroops: MIN_BASE_FEE_STROOPS };
+  }
+
+  const baseUrl =
+    network === "mainnet"
+      ? "https://horizon.stellar.org"
+      : "https://horizon-testnet.stellar.org";
+
+  try {
+    const res = await fetch(`${baseUrl}/fee_stats`, { cache: "no-store" });
+
+    if (!res.ok) {
+      throw new Error(`Horizon fee_stats fetch failed with status ${res.status}`);
+    }
+
+    const data = await res.json();
+    const baseFeeStroops = parseInt(data.last_ledger_base_fee, 10);
+    const modeFeeStroops = parseInt(data.fee_charged?.mode, 10);
+
+    return {
+      baseFeeStroops: Number.isFinite(baseFeeStroops) ? baseFeeStroops : MIN_BASE_FEE_STROOPS,
+      modeFeeStroops: Number.isFinite(modeFeeStroops) ? modeFeeStroops : MIN_BASE_FEE_STROOPS,
+    };
+  } catch (err) {
+    console.error("fetchBaseFee error, falling back to network minimum:", err);
+    return { baseFeeStroops: MIN_BASE_FEE_STROOPS, modeFeeStroops: MIN_BASE_FEE_STROOPS };
+  }
+}
+
+/**
+ * Fetches the current XLM/USD exchange rate from CoinGecko's public API.
+ * Returns `null` (rather than throwing) if the rate cannot be fetched, so
+ * callers can still display the fee in XLM even when a USD quote is
+ * unavailable.
+ */
+export async function fetchXlmUsdRate(): Promise<number | null> {
+  const isMock =
+    typeof process !== "undefined" && process.env.NEXT_PUBLIC_MOCK_WALLET === "true";
+
+  if (isMock) {
+    return 0.11;
+  }
+
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd",
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      throw new Error(`CoinGecko price fetch failed with status ${res.status}`);
+    }
+
+    const data = await res.json();
+    const rate = data?.stellar?.usd;
+
+    return typeof rate === "number" ? rate : null;
+  } catch (err) {
+    console.error("fetchXlmUsdRate error:", err);
+    return null;
+  }
+}
+
 /**
  * Requests 10,000 testnet XLM from Friendbot for the specified address.
  */

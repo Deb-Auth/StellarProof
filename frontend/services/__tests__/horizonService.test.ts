@@ -2,6 +2,8 @@ import {
   fetchXlmBalance,
   fetchRecentTransactions,
   fundTestnetAccount,
+  fetchBaseFee,
+  fetchXlmUsdRate,
 } from "../horizonService";
 
 const TEST_KEY = "GBXXYYYYZZZZ";
@@ -103,6 +105,78 @@ describe("horizonService", () => {
 
       const txs = await fetchRecentTransactions(TEST_KEY, "testnet");
       expect(txs).toEqual([]);
+    });
+  });
+
+  describe("fetchBaseFee", () => {
+    it("fetches and parses fee stats from Horizon", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          last_ledger_base_fee: "100",
+          fee_charged: { mode: "250" },
+        }),
+      }) as jest.Mock;
+
+      const stats = await fetchBaseFee("testnet");
+      expect(stats).toEqual({ baseFeeStroops: 100, modeFeeStroops: 250 });
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://horizon-testnet.stellar.org/fee_stats",
+        expect.any(Object)
+      );
+    });
+
+    it("uses the mainnet Horizon host when requested", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ last_ledger_base_fee: "100", fee_charged: { mode: "100" } }),
+      }) as jest.Mock;
+
+      await fetchBaseFee("mainnet");
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://horizon.stellar.org/fee_stats",
+        expect.any(Object)
+      );
+    });
+
+    it("falls back to the network minimum if the request fails", async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error("Network failure"));
+
+      const stats = await fetchBaseFee("testnet");
+      expect(stats).toEqual({ baseFeeStroops: 100, modeFeeStroops: 100 });
+    });
+
+    it("falls back to the network minimum on an unparseable response", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as jest.Mock;
+
+      const stats = await fetchBaseFee("testnet");
+      expect(stats).toEqual({ baseFeeStroops: 100, modeFeeStroops: 100 });
+    });
+  });
+
+  describe("fetchXlmUsdRate", () => {
+    it("fetches the XLM/USD rate from CoinGecko", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ stellar: { usd: 0.115 } }),
+      }) as jest.Mock;
+
+      const rate = await fetchXlmUsdRate();
+      expect(rate).toBe(0.115);
+    });
+
+    it("returns null if the request fails", async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error("Network failure"));
+
+      const rate = await fetchXlmUsdRate();
+      expect(rate).toBeNull();
     });
   });
 
