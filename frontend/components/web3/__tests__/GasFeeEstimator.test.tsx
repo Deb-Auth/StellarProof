@@ -1,43 +1,59 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import GasFeeEstimator, { FALLBACK_FEE_STROOPS } from "../GasFeeEstimator";
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import GasFeeEstimator, { stroopsToXlm } from "../GasFeeEstimator";
 
 describe("GasFeeEstimator", () => {
-  beforeEach(() => {
-    global.fetch = jest.fn();
+  it("shows a loading skeleton while no data has resolved yet", () => {
+    render(<GasFeeEstimator data={null} loading />);
+    expect(screen.getByLabelText("Loading fee estimate")).toBeInTheDocument();
   });
 
-  afterEach(() => {
-    jest.resetAllMocks();
+  it("shows the error message instead of fee values", () => {
+    render(<GasFeeEstimator data={null} error="Failed to fetch network fee estimate." />);
+    expect(screen.getByTestId("gas-fee-error")).toHaveTextContent(
+      "Failed to fetch network fee estimate.",
+    );
   });
 
-  it("displays the standard fee when Horizon cannot be reached", async () => {
-    jest.mocked(global.fetch).mockRejectedValueOnce(new TypeError("Network error"));
+  it("renders the fee in both XLM and USD", () => {
+    render(
+      <GasFeeEstimator
+        data={{ baseFeeStroops: 100, estimatedFeeStroops: 100, xlmUsdRate: 0.1 }}
+        lastUpdated={new Date()}
+      />,
+    );
 
-    render(<GasFeeEstimator refreshInterval={0} />);
-
-    expect(
-      await screen.findByText(`${FALLBACK_FEE_STROOPS} stroops`, {
-        exact: false,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/using the standard Stellar fee/i),
-    ).toBeInTheDocument();
+    const values = screen.getByTestId("gas-fee-values");
+    expect(values).toHaveTextContent("0.00001");
+    expect(values).toHaveTextContent("XLM");
+    expect(values).toHaveTextContent("USD");
+    expect(values).toHaveTextContent("100 stroops");
   });
 
-  it("displays the fee returned by Horizon", async () => {
-    jest.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ fee_charged: { mode: "250" } }),
-    } as Response);
+  it("falls back gracefully when the USD rate is unavailable", () => {
+    render(
+      <GasFeeEstimator data={{ baseFeeStroops: 100, estimatedFeeStroops: 100, xlmUsdRate: null }} />,
+    );
+    expect(screen.getByTestId("gas-fee-values")).toHaveTextContent("USD rate unavailable");
+  });
 
-    render(<GasFeeEstimator refreshInterval={0} />);
+  it("invokes onRefresh when the refresh button is clicked", () => {
+    const onRefresh = jest.fn();
+    render(
+      <GasFeeEstimator
+        data={{ baseFeeStroops: 100, estimatedFeeStroops: 100, xlmUsdRate: 0.1 }}
+        onRefresh={onRefresh}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("gas-fee-refresh"));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+});
 
-    await waitFor(() => {
-      expect(screen.getByText(/250 stroops/)).toBeInTheDocument();
-    });
-    expect(
-      screen.queryByText(/using the standard Stellar fee/i),
-    ).not.toBeInTheDocument();
+describe("stroopsToXlm", () => {
+  it("converts stroops to XLM using the 10,000,000 stroop ratio", () => {
+    expect(stroopsToXlm(10_000_000)).toBe(1);
+    expect(stroopsToXlm(100)).toBe(0.00001);
   });
 });
