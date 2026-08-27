@@ -26,22 +26,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import NetworkBadge from "@/components/wallet/NetworkBadge";
-import GasFeeEstimator, { type GasFeeEstimate } from "@/components/web3/GasFeeEstimator";
-
-/**
- * Placeholder fee source until live Horizon fee data is wired in.
- * Base fee is Stellar's network minimum (100 stroops); the small
- * variance mimics real network congestion for demo purposes.
- */
-async function fetchMockGasFee(): Promise<GasFeeEstimate> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const baseFeeStroops = 100 + Math.floor(Math.random() * 50);
-  return {
-    baseFeeStroops,
-    estimatedFeeStroops: baseFeeStroops,
-    xlmUsdRate: 0.1 + Math.random() * 0.02,
-  };
-}
+import GasFeeEstimator from "@/components/web3/GasFeeEstimator";
+import { useGasFeeEstimate } from "@/hooks/useGasFeeEstimate";
 
 export default function WalletDashboardPage() {
   const router = useRouter();
@@ -54,46 +40,15 @@ export default function WalletDashboardPage() {
   const [isFunding, setIsFunding] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const [gasFee, setGasFee] = useState<GasFeeEstimate | null>(null);
-  const [isLoadingGasFee, setIsLoadingGasFee] = useState(true);
-  const [gasFeeError, setGasFeeError] = useState<string | null>(null);
-  const [gasFeeUpdatedAt, setGasFeeUpdatedAt] = useState<Date | null>(null);
-
-  const loadGasFee = useCallback(async () => {
-    setIsLoadingGasFee(true);
-    setGasFeeError(null);
-    try {
-      const fee = await fetchMockGasFee();
-      setGasFee(fee);
-      setGasFeeUpdatedAt(new Date());
-    } catch {
-      setGasFeeError("Failed to fetch network fee estimate.");
-    } finally {
-      setIsLoadingGasFee(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchMockGasFee()
-      .then((fee) => {
-        if (!cancelled) {
-          setGasFee(fee);
-          setGasFeeUpdatedAt(new Date());
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setGasFeeError("Failed to fetch network fee estimate.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingGasFee(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const activeNetwork = networkDetails?.network ?? "testnet";
+
+  const {
+    data: gasFee,
+    loading: isLoadingGasFee,
+    error: gasFeeError,
+    lastUpdated: gasFeeUpdatedAt,
+    refresh: loadGasFee,
+  } = useGasFeeEstimate({ network: activeNetwork });
 
   // Redirect disconnected users to /connect
   useEffect(() => {
