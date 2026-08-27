@@ -25,7 +25,10 @@ export default function UploadMedia() {
   const { formData, setUploadFile, setContentHash, setHashProgress, setIsHashing, setStepValid } = useWizardStore();
 
   const content = formData.content;
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // The image preview lives in the store (as part of the uploaded file's
+  // metadata) so it survives step navigation instead of resetting to null
+  // whenever this component remounts.
+  const previewUrl = content?.file?.previewUrl ?? null;
   const [error, setError] = useState<string | null>(null);
 
   const handleFile = useCallback(
@@ -34,13 +37,12 @@ export default function UploadMedia() {
       setContentHash(null);
       setHashProgress(0);
 
-      let preview: string | undefined;
-      if (file.type.startsWith('image/')) {
-        preview = URL.createObjectURL(file);
-        setPreviewUrl(preview);
-      } else {
-        setPreviewUrl(null);
+      // Revoke the previous preview (if any) before creating a new one.
+      if (content?.file?.previewUrl) {
+        URL.revokeObjectURL(content.file.previewUrl);
       }
+
+      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
 
       setUploadFile({
         name: file.name,
@@ -62,12 +64,11 @@ export default function UploadMedia() {
         setIsHashing(false);
       }
     },
-    [setUploadFile, setContentHash, setHashProgress, setIsHashing, setStepValid],
+    [content, setUploadFile, setContentHash, setHashProgress, setIsHashing, setStepValid],
   );
 
   const handleReset = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
     setUploadFile(null);
     setContentHash(null);
     setHashProgress(0);
