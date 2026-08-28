@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   CheckCircle2,
   Edit2,
@@ -248,6 +248,7 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
   } = useWizardStore();
 
   const [confirmed, setConfirmed] = useState(false);
+  const submissionLockRef = useRef(false);
   const content = formData.content;
   const isEncrypted = content?.encryptionEnabled ?? true;
   const contentHashValid = isValidSHA256(content?.contentHash ?? '');
@@ -275,8 +276,9 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
   };
 
   const handleSubmit = useCallback(async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || submissionLockRef.current) return;
 
+    submissionLockRef.current = true;
     setIsSubmitting(true);
     setSubmissionError(null);
 
@@ -312,6 +314,7 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setSubmissionError(errorMessage);
     } finally {
+      submissionLockRef.current = false;
       setIsSubmitting(false);
     }
   }, [canSubmit, content, setIsSubmitting, setSubmissionResult, setSubmissionError]);
