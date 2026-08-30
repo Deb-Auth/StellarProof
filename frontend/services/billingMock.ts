@@ -18,12 +18,52 @@ export interface Invoice {
   currency: "USD";
 }
 
+export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled";
+
+export interface Subscription {
+  planName: string;
+  status: SubscriptionStatus;
+  /** Recurring price in USD for one billing interval. */
+  priceUsd: number;
+  interval: "month" | "year";
+  /** End of the current billing period, i.e. the next renewal date. */
+  currentPeriodEnd: string;
+  /** True when the plan has been cancelled but is still running out its term. */
+  cancelAtPeriodEnd: boolean;
+  verificationsUsed: number;
+  /** Verifications included in the plan; null means unlimited. */
+  verificationsIncluded: number | null;
+}
+
 export function invoiceTotal(invoice: Invoice): number {
   return invoice.lineItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 }
 
 function daysAgo(days: number): string {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Fetches the current subscription for a user. Sample counterpart to
+ * `billingService.fetchSubscription`, used until the billing endpoints are
+ * deployed.
+ */
+export async function fetchSubscription(email: string): Promise<Subscription> {
+  void email;
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        planName: "Pro",
+        status: "active",
+        priceUsd: 49,
+        interval: "month",
+        currentPeriodEnd: daysAgo(-28),
+        cancelAtPeriodEnd: false,
+        verificationsUsed: 128,
+        verificationsIncluded: null,
+      });
+    }, 400);
+  });
 }
 
 /**
