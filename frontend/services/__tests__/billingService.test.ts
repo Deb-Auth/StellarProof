@@ -6,11 +6,16 @@
 
 import {
   INVOICES_ENDPOINT,
+  SUBSCRIPTION_CANCEL_ENDPOINT,
   SUBSCRIPTION_ENDPOINT,
+  SUBSCRIPTION_RESUME_ENDPOINT,
+  cancelSubscription,
+  changeSubscriptionPlan,
   fetchBillingInvoices,
   fetchSubscription,
   mapApiInvoice,
   mapApiSubscription,
+  resumeSubscription,
 } from "../billingService";
 
 const ORIGINAL_FETCH = global.fetch;
@@ -221,5 +226,75 @@ describe("wire-shape mapping", () => {
 
   it("keeps past_due when the API hyphenates it", () => {
     expect(mapApiSubscription({ status: "past-due" }).status).toBe("past_due");
+  });
+});
+
+describe("subscription mutations", () => {
+  it("sends the chosen plan and interval when changing plan", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      mockJsonResponse({
+        success: true,
+        data: { planName: "Business", status: "active", priceUsd: 290, interval: "year" },
+      }),
+    );
+
+    const subscription = await changeSubscriptionPlan({ planId: "business", interval: "year" });
+
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe(SUBSCRIPTION_ENDPOINT);
+    expect(init.method).toBe("PUT");
+    expect(init.headers["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(init.body)).toEqual({ planId: "business", interval: "year" });
+    expect(subscription.planName).toBe("Business");
+    expect(subscription.interval).toBe("year");
+  });
+
+  it("surfaces the API error instead of falling back to sample data", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      mockJsonResponse({ success: false, error: "Payment method declined." }, false, 402),
+    );
+
+    await expect(
+      changeSubscriptionPlan({ planId: "personal", interval: "month" }),
+    ).rejects.toThrow("Payment method declined.");
+  });
+
+  it("reports an unreachable API when changing plan", async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(
+      changeSubscriptionPlan({ planId: "personal", interval: "month" }),
+    ).rejects.toThrow(/Unable to reach/i);
+  });
+
+  it("posts to the cancel endpoint and maps the returned subscription", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      mockJsonResponse({
+        success: true,
+        data: { planName: "Personal", cancelAtPeriodEnd: true, interval: "month" },
+      }),
+    );
+
+    const subscription = await cancelSubscription();
+
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe(SUBSCRIPTION_CANCEL_ENDPOINT);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+    expect(subscription.cancelAtPeriodEnd).toBe(true);
+  });
+
+  it("posts to the resume endpoint", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      mockJsonResponse({
+        success: true,
+        data: { planName: "Personal", cancelAtPeriodEnd: false, interval: "month" },
+      }),
+    );
+
+    const subscription = await resumeSubscription();
+
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(SUBSCRIPTION_RESUME_ENDPOINT);
+    expect(subscription.cancelAtPeriodEnd).toBe(false);
   });
 });
