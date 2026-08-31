@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   CheckCircle2,
   Edit2,
@@ -16,7 +16,11 @@ import {
   ExternalLink,
   Copy,
   Check,
+  HardDrive,
+  Lock,
+  Globe,
 } from 'lucide-react';
+import { isConnected, requestAccess } from '@stellar/freighter-api';
 import { useWizardStore, SubmissionResult } from '../../store/wizard.store';
 import { isValidSHA256 } from '@/utils/crypto';
 import { submitVerificationRequest } from '@/services/verificationService';
@@ -24,6 +28,8 @@ import { submitVerificationRequest } from '@/services/verificationService';
 interface ReviewSubmitStepProps {
   onNavigate?: (step: number) => void;
 }
+
+// --- HELPER COMPONENTS ---
 
 function SectionHeader({
   icon,
@@ -52,31 +58,6 @@ function SectionHeader({
           Edit
         </button>
       )}
-    </div>
-  );
-}
-
-function FieldRow({
-  label,
-  value,
-  mono,
-  missing,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-  missing?: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-      <span
-        className={`text-xs break-all ${mono ? 'font-mono' : ''} ${
-          missing ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'
-        }`}
-      >
-        {value}
-      </span>
     </div>
   );
 }
@@ -110,13 +91,7 @@ function OverlaySpinner() {
   );
 }
 
-function SuccessState({
-  result,
-  onReset,
-}: {
-  result: SubmissionResult;
-  onReset: () => void;
-}) {
+function SuccessState({ result, onReset }: { result: SubmissionResult; onReset: () => void; }) {
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleCopy = useCallback(async (text: string, field: string) => {
@@ -164,13 +139,8 @@ function SuccessState({
               type="button"
               onClick={() => handleCopy(result.requestId, 'requestId')}
               className="ml-2 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Copy Request ID"
             >
-              {copied === 'requestId' ? (
-                <Check className="w-4 h-4 text-green-600" />
-              ) : (
-                <Copy className="w-4 h-4 text-gray-500" />
-              )}
+              {copied === 'requestId' ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
             </button>
           </div>
 
@@ -183,13 +153,8 @@ function SuccessState({
               type="button"
               onClick={() => handleCopy(result.txHash, 'txHash')}
               className="ml-2 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Copy Transaction Hash"
             >
-              {copied === 'txHash' ? (
-                <Check className="w-4 h-4 text-green-600" />
-              ) : (
-                <Copy className="w-4 h-4 text-gray-500" />
-              )}
+              {copied === 'txHash' ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
             </button>
           </div>
 
@@ -203,23 +168,11 @@ function SuccessState({
                 type="button"
                 onClick={() => handleCopy(result.certificateId!, 'certificateId')}
                 className="ml-2 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Copy Certificate ID"
               >
-                {copied === 'certificateId' ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Copy className="w-4 h-4 text-gray-500" />
-                )}
+                {copied === 'certificateId' ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
               </button>
             </div>
           )}
-
-          <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Submitted At</p>
-            <p className="text-sm text-gray-800 dark:text-gray-200">
-              {new Date(result.timestamp).toLocaleString()}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -246,15 +199,7 @@ function SuccessState({
   );
 }
 
-function ErrorState({
-  error,
-  onRetry,
-  onReset,
-}: {
-  error: string;
-  onRetry: () => void;
-  onReset: () => void;
-}) {
+function ErrorState({ error, onRetry, onReset }: { error: string; onRetry: () => void; onReset: () => void; }) {
   return (
     <div className="w-full max-w-xl mx-auto space-y-6">
       <div className="flex flex-col items-center text-center space-y-4 py-6">
@@ -262,12 +207,8 @@ function ErrorState({
           <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-            Submission Failed
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
-            {error}
-          </p>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Submission Failed</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">{error}</p>
         </div>
       </div>
 
@@ -292,6 +233,8 @@ function ErrorState({
   );
 }
 
+// --- MAIN COMPONENT ---
+
 export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) {
   const {
     formData,
@@ -305,23 +248,62 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
   } = useWizardStore();
 
   const [confirmed, setConfirmed] = useState(false);
+  const submissionLockRef = useRef(false);
   const content = formData.content;
-  const modeName = content?.encryptionEnabled ? 'SPV (Encrypted)' : 'Standard';
+  const isEncrypted = content?.encryptionEnabled ?? true;
   const contentHashValid = isValidSHA256(content?.contentHash ?? '');
   const hasManifest = content?.manifest !== null && content?.manifest !== undefined;
+  
   const canSubmit = contentHashValid && confirmed && !isSubmitting && !submissionResult;
+  const file = content?.file;
+
+  // Generate thumbnail URL for images with safe Blob check
+  const thumbnailPreview = useMemo(() => {
+    if (file && file instanceof Blob && file.type?.startsWith('image/')) {
+      return URL.createObjectURL(file);
+    }
+    return null;
+  }, [file]);
+
+  // Utility to format file size
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  };
 
   const handleSubmit = useCallback(async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || submissionLockRef.current) return;
 
+    submissionLockRef.current = true;
     setIsSubmitting(true);
     setSubmissionError(null);
 
     try {
+      // Wallet Connection Check
+      const walletConnected = await isConnected();
+      if (!walletConnected) {
+        throw new Error('Wallet not connected. Please connect your Freighter wallet to continue.');
+      }
+
+      // Retrieve dynamic active public key using requestAccess (v6 API support)
+      const accessResponse = await requestAccess();
+      if (accessResponse.error) {
+        throw new Error(`Freighter error: ${accessResponse.error}`);
+      }
+
+      const activePublicKey = accessResponse.address;
+      if (!activePublicKey) {
+        throw new Error('Unable to retrieve public key from Freighter wallet.');
+      }
+
       const result = await submitVerificationRequest(
         content?.contentHash ?? '',
         content?.manifestHash ?? null,
-        'GAAAAAAAAAAAAAAA'
+        activePublicKey 
       );
 
       setSubmissionResult({
@@ -332,6 +314,7 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setSubmissionError(errorMessage);
     } finally {
+      submissionLockRef.current = false;
       setIsSubmitting(false);
     }
   }, [canSubmit, content, setIsSubmitting, setSubmissionResult, setSubmissionError]);
@@ -344,43 +327,82 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
     resetWizard();
   }, [resetWizard]);
 
-  if (submissionResult) {
-    return <SuccessState result={submissionResult} onReset={handleReset} />;
-  }
-
-  if (submissionError) {
-    return (
-      <ErrorState error={submissionError} onRetry={handleRetry} onReset={handleReset} />
-    );
-  }
+  if (submissionResult) return <SuccessState result={submissionResult} onReset={handleReset} />;
+  if (submissionError) return <ErrorState error={submissionError} onRetry={handleRetry} onReset={handleReset} />;
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-4">
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4 space-y-3">
-        <SectionHeader icon={<Upload className="w-4 h-4" />} title="Uploaded File" stepIndex={0} onNavigate={onNavigate} />
-        {content?.file ? (
-          <FieldRow label="File" value={`${content.file.name} (${(content.file.size / 1024).toFixed(1)} KB)`} />
-        ) : (
-          <p className="text-xs text-gray-400 italic">No file uploaded.</p>
-        )}
+      
+      {/* Media Summary Card */}
+      <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 shadow-sm">
+        <div className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
+           <SectionHeader icon={<HardDrive className="w-4 h-4" />} title="Media Payload" stepIndex={0} onNavigate={onNavigate} />
+        </div>
+        <div className="flex items-start gap-4 p-4">
+          {thumbnailPreview ? (
+            <img 
+              src={thumbnailPreview} 
+              alt="Upload preview" 
+              className="h-24 w-24 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
+            />
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <FileText className="h-8 w-8 text-gray-400" />
+            </div>
+          )}
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{file?.name || 'No file selected'}</span>
+            <span className="text-sm text-gray-500">{file ? formatBytes(file.size) : '--'}</span>
+            <span className="inline-block mt-2 rounded-full bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400 w-max">
+              {file?.type || 'Unknown format'}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4">
-        <SectionHeader icon={<FileText className="w-4 h-4" />} title="Verification Mode" />
-        <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-            content?.encryptionEnabled
-              ? 'bg-green-100 text-green-700'
-              : 'bg-blue-100 text-blue-700'
-          }`}
-        >
-          {content?.encryptionEnabled && <ShieldCheck className="w-3 h-3" />}
-          {modeName}
-        </span>
+      {/* Manifest & SPV Privacy Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Manifest Details */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4 shadow-sm space-y-3">
+          <SectionHeader icon={<FileJson className="w-4 h-4" />} title="Manifest Details" stepIndex={1} onNavigate={onNavigate} />
+          {hasManifest && content?.manifestHash ? (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-gray-500">Hash</span>
+              <span className="text-xs font-mono text-gray-800 dark:text-gray-200 truncate" title={content.manifestHash}>
+                {content.manifestHash}
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic">No additional manifest metadata provided.</p>
+          )}
+        </div>
+
+        {/* Privacy Options */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4 shadow-sm">
+          <SectionHeader icon={<ShieldCheck className="w-4 h-4" />} title="Privacy Configuration" stepIndex={2} onNavigate={onNavigate} />
+          <div className="flex items-start gap-3 mt-2">
+            <div className={`mt-0.5 rounded-full p-1.5 ${isEncrypted ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+              {isEncrypted ? (
+                <Lock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <Globe className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {isEncrypted ? 'KMS Encrypted' : 'Public Ledger'}
+              </span>
+              <span className="text-xs text-gray-500 mt-0.5">
+                {isEncrypted ? 'Payload secured before broadcasting.' : 'Data stored plainly for transparency.'}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Content Hash Status */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4 space-y-3">
-        <SectionHeader icon={<Hash className="w-4 h-4" />} title="Content Hash" stepIndex={0} onNavigate={onNavigate} />
+        <SectionHeader icon={<Hash className="w-4 h-4" />} title="Content Hash Validation" />
         {contentHashValid ? (
           <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
             <p className="text-xs font-mono break-all text-green-800 dark:text-green-200">
@@ -389,21 +411,13 @@ export default function ReviewSubmitStep({ onNavigate }: ReviewSubmitStepProps) 
           </div>
         ) : (
           <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
-            <p className="text-xs text-red-700">Valid hash required.</p>
+            <p className="text-xs text-red-700 dark:text-red-400">Valid SHA-256 hash required before submission.</p>
           </div>
         )}
       </div>
 
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-4 space-y-3">
-        <SectionHeader icon={<FileJson className="w-4 h-4" />} title="Manifest" stepIndex={1} onNavigate={onNavigate} />
-        {hasManifest && content?.manifestHash ? (
-          <FieldRow label="Manifest Hash" value={content.manifestHash} mono />
-        ) : (
-          <p className="text-xs text-gray-400 italic">No manifest attached.</p>
-        )}
-      </div>
-
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-5 space-y-4">
+      {/* Confirmation & Submit */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-5 space-y-4 shadow-sm">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"

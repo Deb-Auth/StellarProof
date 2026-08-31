@@ -331,6 +331,7 @@ export default function SearchPage() {
           <ListView
             results={results}
             isLoading={loading}
+            onClearFilters={query ? handleClearSearch : undefined}
           />
         ) : (
           <GridView
