@@ -11,8 +11,13 @@
  * the route, they resolve with the mock payload from `billingMock` and mark
  * the result `source: "sample"`, letting the dashboard render something
  * useful while telling the user the figures are not live.
+ *
+ * Plan changes (`PUT /api/v1/users/me/subscription`) and cancel/resume
+ * (`POST .../subscription/cancel` and `.../resume`) have no such fallback:
+ * a write that did not reach the API is reported as an error.
  */
 
+import type { BillingInterval } from "@/config/plans";
 import {
   fetchInvoices as fetchSampleInvoices,
   fetchSubscription as fetchSampleSubscription,
@@ -39,6 +44,8 @@ export const API_BASE_URL: string =
 const API_ROOT = `${API_BASE_URL.replace(/\/$/, "")}/api/v1`;
 
 export const SUBSCRIPTION_ENDPOINT = `${API_ROOT}/users/me/subscription`;
+export const SUBSCRIPTION_CANCEL_ENDPOINT = `${SUBSCRIPTION_ENDPOINT}/cancel`;
+export const SUBSCRIPTION_RESUME_ENDPOINT = `${SUBSCRIPTION_ENDPOINT}/resume`;
 export const INVOICES_ENDPOINT = `${API_ROOT}/users/me/invoices`;
 
 /** Where the rendered data came from, so the UI can flag non-live figures. */
@@ -211,19 +218,29 @@ export function getAuthToken(): string | null {
 }
 
 /** Raised when the request reached the API but the API refused it. */
-class BillingApiError extends Error {}
+export class BillingApiError extends Error {}
 
-async function requestJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+interface RequestOptions {
+  method?: "GET" | "POST" | "PUT";
+  /** JSON request body; sent with a `Content-Type: application/json` header. */
+  body?: unknown;
+  signal?: AbortSignal;
+}
+
+async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
+  const { method = "GET", body: requestBody, signal } = options;
   const token = getAuthToken();
 
   let response: Response;
   try {
     response = await fetch(url, {
-      method: "GET",
+      method,
       headers: {
         Accept: "application/json",
+        ...(requestBody !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      ...(requestBody !== undefined ? { body: JSON.stringify(requestBody) } : {}),
       signal,
     });
   } catch (err) {
@@ -271,7 +288,7 @@ export async function fetchSubscription(
   const { signal, email = "user@stellarproof.com" } = options;
 
   try {
-    const payload = await requestJson<ApiSubscription>(SUBSCRIPTION_ENDPOINT, signal);
+    const payload = await requestJson<ApiSubscription>(SUBSCRIPTION_ENDPOINT, { signal });
     return { data: mapApiSubscription(payload), source: "api" };
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
@@ -290,7 +307,7 @@ export async function fetchBillingInvoices(
   const { signal, email = "user@stellarproof.com" } = options;
 
   try {
-    const payload = await requestJson<ApiInvoice[] | ApiInvoiceList>(INVOICES_ENDPOINT, signal);
+    const payload = await requestJson<ApiInvoice[] | ApiInvoiceList>(INVOICES_ENDPOINT, { signal });
     const raw = Array.isArray(payload) ? payload : payload.invoices;
     if (!Array.isArray(raw)) {
       throw new BillingApiError("Unexpected response shape from the invoices API.");
@@ -306,4 +323,66 @@ export async function fetchBillingInvoices(
     console.warn("Falling back to sample invoices:", err);
     return { data: await fetchSampleInvoices(email), source: "sample" };
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          Subscription mutations                            */
+/* -------------------------------------------------------------------------- */
+
+export interface ChangePlanOptions {
+  /** Plan identifier from `config/plans`. */
+  planId: string;
+  interval: BillingInterval;
+  signal?: AbortSignal;
+}
+
+export interface SubscriptionActionOptions {
+  signal?: AbortSignal;
+}
+
+/**
+ * Switches the signed-in user to another plan, used for both upgrades and
+ * downgrades.
+ *
+ * Unlike the read paths there is no sample fallback: a plan change that did
+ * not reach the API must surface as an error rather than as a fake success,
+ * so the caller can tell the user nothing was charged or changed.
+ */
+export async function changeSubscriptionPlan({
+  planId,
+  interval,
+  signal,
+}: ChangePlanOptions): Promise<Subscription> {
+  const payload = await requestJson<ApiSubscription>(SUBSCRIPTION_ENDPOINT, {
+    method: "PUT",
+    body: { planId, interval },
+    signal,
+  });
+  return mapApiSubscription(payload);
+}
+
+/**
+ * Cancels the subscription. The plan keeps running until the end of the paid
+ * period, so the API answers with the updated subscription rather than an
+ * empty body.
+ */
+export async function cancelSubscription({
+  signal,
+}: SubscriptionActionOptions = {}): Promise<Subscription> {
+  const payload = await requestJson<ApiSubscription>(SUBSCRIPTION_CANCEL_ENDPOINT, {
+    method: "POST",
+    signal,
+  });
+  return mapApiSubscription(payload);
+}
+
+/** Turns auto-renewal back on for a subscription that was cancelled. */
+export async function resumeSubscription({
+  signal,
+}: SubscriptionActionOptions = {}): Promise<Subscription> {
+  const payload = await requestJson<ApiSubscription>(SUBSCRIPTION_RESUME_ENDPOINT, {
+    method: "POST",
+    signal,
+  });
+  return mapApiSubscription(payload);
 }
