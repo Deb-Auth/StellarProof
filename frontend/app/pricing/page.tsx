@@ -8,10 +8,15 @@ import { Check, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PricingTable from "./components/PricingTable";
 
+type BillingPeriod = "monthly" | "yearly";
+
 interface PricingTier {
   name: string;
   monthlyUSD: number;
   monthlyXLM: number;
+  /** Yearly price: ten months' worth, i.e. two months free. */
+  yearlyUSD: number;
+  yearlyXLM: number;
   description: string;
   features: string[];
   cta: string;
@@ -23,6 +28,8 @@ const pricingTiers: PricingTier[] = [
     name: "Free",
     monthlyUSD: 0,
     monthlyXLM: 0,
+    yearlyUSD: 0,
+    yearlyXLM: 0,
     description: "Get started with basic verification features",
     features: [
       "3 monthly verifications",
@@ -36,6 +43,8 @@ const pricingTiers: PricingTier[] = [
     name: "Personal",
     monthlyUSD: 9,
     monthlyXLM: 50,
+    yearlyUSD: 90,
+    yearlyXLM: 500,
     description: "Perfect for individual creators",
     features: [
       "Unlimited verifications",
@@ -51,6 +60,8 @@ const pricingTiers: PricingTier[] = [
     name: "Business",
     monthlyUSD: 29,
     monthlyXLM: 150,
+    yearlyUSD: 290,
+    yearlyXLM: 1500,
     description: "For growing businesses and teams",
     features: [
       "Everything in Personal",
@@ -65,6 +76,8 @@ const pricingTiers: PricingTier[] = [
     name: "Enterprise",
     monthlyUSD: 99,
     monthlyXLM: 500,
+    yearlyUSD: 990,
+    yearlyXLM: 5000,
     description: "For large organizations with custom needs",
     features: [
       "Everything in Business",
@@ -80,8 +93,21 @@ const pricingTiers: PricingTier[] = [
 export default function PricingPage() {
   const { isAuthenticated } = useAuth();
   const [currency, setCurrency] = useState<"USD" | "XLM">("USD");
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState<string | null>(null);
+
+  const priceFor = (tier: PricingTier): number => {
+    if (billingPeriod === "yearly") {
+      return currency === "USD" ? tier.yearlyUSD : tier.yearlyXLM;
+    }
+    return currency === "USD" ? tier.monthlyUSD : tier.monthlyXLM;
+  };
+
+  const formatPrice = (amount: number): string =>
+    currency === "USD" ? `$${amount}` : `${amount} XLM`;
+
+  const periodSuffix = billingPeriod === "yearly" ? "/year" : "/month";
 
   const handlePreferenceSave = () => {
     if (isAuthenticated && selectedPreference) {
@@ -161,21 +187,49 @@ export default function PricingPage() {
             </button>
           </div>
 
-          {/* Currency Switcher */}
-          <div className="mt-6 inline-flex items-center gap-3 bg-white dark:bg-darkblue p-1 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm">
-            {(["USD", "XLM"] as const).map((curr) => (
-              <button
-                key={curr}
-                onClick={() => setCurrency(curr)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  currency === curr
-                    ? "bg-primary text-white shadow-button-glow"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }`}
-              >
-                {curr}
-              </button>
-            ))}
+          {/* Billing Period and Currency Switchers */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <div
+              className="inline-flex items-center gap-3 bg-white dark:bg-darkblue p-1 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm"
+              role="group"
+              aria-label="Billing period"
+            >
+              {(["monthly", "yearly"] as const).map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setBillingPeriod(period)}
+                  aria-pressed={billingPeriod === period}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    billingPeriod === period
+                      ? "bg-primary text-white shadow-button-glow"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                >
+                  {period === "monthly" ? "Monthly" : "Yearly"}
+                </button>
+              ))}
+            </div>
+
+            <div
+              className="inline-flex items-center gap-3 bg-white dark:bg-darkblue p-1 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm"
+              role="group"
+              aria-label="Currency"
+            >
+              {(["USD", "XLM"] as const).map((curr) => (
+                <button
+                  key={curr}
+                  onClick={() => setCurrency(curr)}
+                  aria-pressed={currency === curr}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    currency === curr
+                      ? "bg-primary text-white shadow-button-glow"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                >
+                  {curr}
+                </button>
+              ))}
+            </div>
           </div>
 
           {!isAuthenticated && (
@@ -189,7 +243,10 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          data-testid="pricing-cards"
+        >
           {pricingTiers.map((tier, index) => (
             <motion.div
               key={tier.name}
@@ -219,22 +276,16 @@ export default function PricingPage() {
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  {currency === "USD" ? (
-                    <>
-                      <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                        ${tier.monthlyUSD}
-                      </span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">/month</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                        {tier.monthlyXLM} XLM
-                      </span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">/month</span>
-                    </>
-                  )}
+                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                    {formatPrice(priceFor(tier))}
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{periodSuffix}</span>
                 </div>
+                {billingPeriod === "yearly" && tier.monthlyUSD > 0 && (
+                  <p className="mt-1 text-xs font-medium text-primary">
+                    Two months free versus monthly billing
+                  </p>
+                )}
               </div>
 
               <ul className="space-y-4 mb-8">
