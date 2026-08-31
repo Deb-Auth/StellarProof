@@ -55,11 +55,17 @@ export const uploadFileToIPFS = async (file: File): Promise<IpfsUploadResponse> 
       success: true,
       cid: data.IpfsHash, // Pinata natively returns the CID in the IpfsHash field
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error uploading media to IPFS:', error);
+    
+    // Safely extract the error message without using 'any'
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'An unexpected error occurred during IPFS upload';
+
     return {
       success: false,
-      error: error.message || 'An unexpected error occurred during IPFS upload',
+      error: errorMessage,
     };
   }
 };
