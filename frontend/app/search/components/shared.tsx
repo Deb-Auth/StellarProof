@@ -185,7 +185,7 @@ export function CopyButton({
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({ message, onClearFilters }: { message: string; onClearFilters?: () => void }) {
   return (
     <div
       className={cn(
@@ -205,6 +205,15 @@ export function EmptyState({ message }: { message: string }) {
       <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
         {message}
       </p>
+      {onClearFilters && (
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+        >
+          Clear filters
+        </button>
+      )}
     </div>
   );
 }

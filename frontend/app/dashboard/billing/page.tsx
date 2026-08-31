@@ -106,7 +106,7 @@ function SubscriptionCard({ subscription }: { subscription: Subscription }) {
       </div>
 
       <Link
-        href="/pricing"
+        href="/dashboard/settings/subscription"
         className="mt-5 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
       >
         Change plan

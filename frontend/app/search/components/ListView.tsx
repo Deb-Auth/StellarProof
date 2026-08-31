@@ -31,6 +31,8 @@ export interface ListViewProps {
   isLoading?: boolean;
   /** Message shown when `results` is empty (and not loading). */
   emptyMessage?: string;
+  /** Optional callback invoked when filters should be reset. */
+  onClearFilters?: () => void;
   /** Optional callback invoked when the user requests more results. */
   onLoadMore?: () => void;
   /** Whether more results are available (shows "Load more" affordance). */
@@ -269,6 +271,7 @@ export function ListView({
   results,
   isLoading = false,
   emptyMessage = "No certificates match your search.",
+  onClearFilters,
   onLoadMore,
   hasMore = false,
 }: ListViewProps) {
@@ -277,7 +280,7 @@ export function ListView({
   }
 
   if (results.length === 0) {
-    return <EmptyState message={emptyMessage} />;
+    return <EmptyState message={emptyMessage} onClearFilters={onClearFilters} />;
   }
 
   return (
