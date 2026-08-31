@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import { useAuth } from "@/app/context/AuthContext";
 import { Check, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import PricingTable from "./components/PricingTable";
 
 interface PricingTier {
   name: string;
@@ -258,6 +259,9 @@ export default function PricingPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* Plan Comparison Table */}
+        <PricingTable />
 
         {/* FAQ Section */}
         <div className="mt-20 max-w-3xl mx-auto">
