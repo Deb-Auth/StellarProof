@@ -35,6 +35,7 @@ export interface SPVResult {
 
 export interface UploadContentData {
   file: FileInfo | null;
+  fileError?: string | null;
   contentHash: string | null;
   hashProgress: number;
   isHashing: boolean;
@@ -52,3 +53,22 @@ export interface WizardFormData {
 }
 
 export type StepValidationMap = Record<number, boolean>;
+
+export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+
+export const Supported_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+] as const;
+
+export type SupportedMimeType = (typeof Supported_MIME_TYPES)[number];
+
+export interface FileValidationResult {
+  valid: boolean;
+  error?: string;
+}

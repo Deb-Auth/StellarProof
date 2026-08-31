@@ -103,4 +103,51 @@ describe("InvoicesView", () => {
     render(<InvoicesView />);
     expect(await screen.findByText("No invoices yet.")).toBeInTheDocument();
   });
+
+  it("renders the invoice summary and both dates", async () => {
+    render(<InvoicesView />);
+    expect(await screen.findByTestId("invoice-row-INV-2026-0001")).toBeInTheDocument();
+    expect(screen.getByText("Pro plan")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Issued" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Due" })).toBeInTheDocument();
+  });
+
+  it("shows an error state and reloads when the fetch fails", async () => {
+    (fetchInvoices as jest.Mock).mockRejectedValueOnce(new Error("network down"));
+    render(<InvoicesView />);
+
+    expect(await screen.findByTestId("invoices-error")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+
+    expect(await screen.findByTestId("invoice-row-INV-2026-0001")).toBeInTheDocument();
+    expect(fetchInvoices).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("InvoicesView (controlled)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("renders the invoices passed in without fetching", () => {
+    render(<InvoicesView invoices={SAMPLE_INVOICES} showHeader={false} />);
+
+    expect(screen.getByTestId("invoice-row-INV-2026-0001")).toBeInTheDocument();
+    expect(fetchInvoices).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: /Billing & Invoices/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the loading state from props", () => {
+    render(<InvoicesView invoices={[]} isLoading />);
+    expect(screen.getByRole("status")).toHaveTextContent(/loading invoices/i);
+  });
+
+  it("renders the error from props and calls onRetry", () => {
+    const onRetry = jest.fn();
+    render(<InvoicesView invoices={[]} error="Billing API unavailable" onRetry={onRetry} />);
+
+    expect(screen.getByText("Billing API unavailable")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
 });

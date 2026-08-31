@@ -1,3 +1,5 @@
+// frontend/features/verification/utils/payloadBuilder.ts
+
 import type { WizardFormData } from "../types/wizard.types";
 
 export interface VerificationSubmissionPayload {
@@ -11,6 +13,10 @@ export interface PayloadBuilderOptions {
   publicKey?: string;
 }
 
+/**
+ * Extracts verification data from the wizard state and builds 
+ * the final JSON payload required by the verification endpoints.
+ */
 export function buildVerificationPayload(
   formData: WizardFormData,
   options: PayloadBuilderOptions = {},
